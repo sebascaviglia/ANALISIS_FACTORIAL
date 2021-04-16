@@ -1,0 +1,145 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+#### R para Análisis Factorial Exploratorio
+
+# se analizan las calificaciones de 220 alumnos para encontrar un informacion subyacentes en las notas de las Asignaturas
+
+# Cargamos librerias Necesarias
+
+library (base)
+library (lavaan)
+library(semPlot)
+library(ggplot2)
+library(psych)
+library(GPArotation)
+library(Matrix)
+library(nFactors)
+
+```
+```{r}
+#Conversión del vector de correlaciones en una matriz que llamamos
+# datos.cor
+#Definimos el vector que llamamos x
+
+r <- c(1.000,
+ .439,1.000,
+ .410,.351,1.000,
+ .288,.354,.164,1.000,
+ .329,.320,.190,.595,1.000,
+ .248,.329,.181,.470,.464,1.000)
+
+#Convertimos el vector x en la matriz datos.cor
+R<-lav_matrix_lower2full(r)
+
+#Etiquetamos a las variables de la matriz segun nombre asignatura
+colnames(R) <- rownames(R) <-
+ c("Lit","Ing", "His","Ari","Alg","Geo")
+
+
+```
+
+```{r}
+# ============================================
+# Descomposición en autovalores y autovectores
+# ============================================
+
+
+auto<-svd(R)
+av<-Diagonal(6,auto$d)
+LAMBDA=auto$u%*%sqrt(av)
+
+
+```
+
+```{r}
+
+# =======================================
+# Estimación EFA componentes principales sin rotar
+# =======================================
+
+fit.pca<-principal(R,nfactors=2,rotate="none",nobs=220)
+print(fit.pca)
+plot(fit.pca,labels=row.names(R),cex=.7, ylim=c(-.8,.8)) 
+
+```
+```{r}
+
+# =======================================
+# Determinación del número de factores
+# =======================================
+# autovalor>1, Hacer gráfico de sedimentación como en componentes
+#principales
+#y Test de Barlett para comprobar correlación entre variables
+# test de Barlett
+nBartlett(R, N=220, alpha=0.01, cor=TRUE, details=TRUE)
+
+
+```
+```{r}
+# =======================================
+# Rotación de los ejes ORTOGONAL
+# =======================================
+
+# estimamos otra vez para tener la solución rotada
+
+fit.pa<-fa(R,nfactors=2,fm="pa",rotate="varimax",n.obs=220)
+fit.pa$rot.mat
+
+
+```
+```{r}
+# grafico ejes rotados
+ggplot(datos.grafico)+
+ geom_point(aes(x=PA1, y=PA2,colour="darkred"))+
+ geom_text_repel(aes(x=PA1, y=PA2),label=rownames(datos.grafico))+
+ geom_vline(xintercept = 0,colour="darkgray")+
+ geom_hline(yintercept = 0,colour="darkgray")+
+ labs (x="Dimensión 1 (37%)", y="Dimensión 2 (10%)")+
+ theme(legend.position="none")+
+ expand_limits(x=c(0,1), y=c(-0.5, 0.5))+
+ geom_abline(intercept = 0, slope =
+tan(0.66624975),linetype="dashed",colour="darkred")+
+ geom_abline(intercept = 0, slope =
+tan(0.66624975+pi/2),linetype="dashed",colour="darkred")+
+ theme(aspect.ratio=1)
+
+```
+```{r}
+# Ilustramos la rotacion con la matriz
+T<-matrix(c(0.7861450, -0.6180421,0.6180421,0.7861450),2,2)
+L<-matrix(c(0.59,0.59,0.43,0.71,0.70,0.58,0.38,0.24,0.41,-0.33,-0.28,-
+0.18),6,2)
+LR<-L%*%T
+# =======================================
+# Medidas de ajuste o de adecuación muestral
+# =======================================
+cortest.bartlett(R,n=220)
+KMO(R)
+# calculo de la matriz reproducida para PAF y varimax
+LAMBDA<-
+matrix(c(0.23,0.32,0.08,0.76,0.72,0.57,0.66,0.55,0.59,0.18,0.22,0.22),
+6,2)
+Rrep<-LAMBDA%*%t(LAMBDA)
+Rres<-R-Rrep
+#Calculo del SRMR OJO! psych solo tiene en cuenta los residuos fuera
+de la diagonal
+residuos<- fit.pa$residual[row(fit.pa$residual)!=col(fit.pa$residual)]
+# solo fuera diagonal
+SRMR<-sqrt(mean(residuos^2))
+SRMR
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
